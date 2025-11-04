@@ -1,23 +1,25 @@
 # src/server.py
 import socket
 import threading
-from typing import Callable
 
-from utils.log import Logger
+from src.utils.log import Logger
 
-MessageHandler = Callable[[bytes, tuple[str, int]], bytes | None]
 
 class Server:
-    def __init__(self, host: str, port: int, on_message: MessageHandler | None=None, backlog: int=100):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        backlog: int = 100,
+    ):
         self.host: str = host
         self.port: int = port
         self.backlog: int = backlog
 
-        self._on_message: MessageHandler | None = on_message
         self._server_sock: socket.socket | None = None
         self._running: bool = False
 
-        self._log: Logger = Logger()
+        self._log: Logger = Logger("server.log")
 
     def start(self) -> None:
         if self._server_sock is not None:
@@ -74,26 +76,13 @@ class Server:
         self._log.log(f"Accepted connection from {addr_str}")
 
         try:
-            with conn:
-                f = conn.makefile('rwb')
-                while True:
-                    l = f.readline()
-                    if not l:
-                        break
-                    load = l.rstrip(b'\r\n')
+            request = conn.recv(1024)
+            self._log.log(f"Request received: {request}")
+            # Treat request
+            conn.send("Ping back".encode())
 
-                    try:
-                        if self._on_message:
-                            res = self._on_message(load, addr)
-                        else:
-                            res = load
-                    except Exception as e:
-                        self._log.log(f"Handler error for {addr_str}: {e}")
-                        break
-
-                    if res is not None:
-                        _ = f.write(res + b"\n")
         except Exception as e:
             self._log.log(f"Connection error with {addr_str}: {e}")
         finally:
             self._log.log(f"Connection closed from {addr_str}")
+            conn.close()
