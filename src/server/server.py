@@ -1,8 +1,8 @@
-# src/server.py
+# src/server/server.py
 import socket
 import threading
 
-from src.utils.log import Logger
+from utils.log import Logger
 
 
 class Server:
@@ -52,7 +52,7 @@ class Server:
                 )
                 c_thread.start()
         except KeyboardInterrupt:
-            pass
+            self._log.log("KeyboardInterrupt: Closing server.")
         finally:
             self.stop()
 
@@ -63,11 +63,10 @@ class Server:
         if self._server_sock:
             try:
                 self._server_sock.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            try:
-                self._server_sock.close()
+            except OSError as os_e:
+                self._log.log(f"Error trying to close server: {os_e}")
             finally:
+                self._server_sock.close()
                 self._server_sock = None
         self._log.log("Server stopped")
 
@@ -76,13 +75,16 @@ class Server:
         self._log.log(f"Accepted connection from {addr_str}")
 
         try:
-            request = conn.recv(1024)
-            self._log.log(f"Request received: {request}")
-            # Treat request
-            conn.send("Ping back".encode())
+            while True:
+                request = conn.recv(1024)
+                if len(request) == 0:
+                    raise Exception("Client disconnected")
+                self._log.log(f"Request received: {request}")
+                # Treat request
+                conn.send("Ping back".encode())
 
         except Exception as e:
             self._log.log(f"Connection error with {addr_str}: {e}")
         finally:
-            self._log.log(f"Connection closed from {addr_str}")
             conn.close()
+            self._log.log(f"Connection closed from {addr_str}")
