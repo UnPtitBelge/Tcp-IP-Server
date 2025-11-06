@@ -94,7 +94,7 @@ class Server:
     def _handle_request(self, request: dict) -> dict | None:
         match request["cmd"]:
             case Cmd.PING:
-                return {"cmd": Cmd.PING, "data": "Ping"}
+                return {"cmd": Cmd.PING}
             case Cmd.LOGIN:
                 return self._login_client(request)
             case Cmd.SEND_MESSAGE:
@@ -118,6 +118,9 @@ class Server:
         }
 
         res["size"] = True if 3 <= len(pwd) < 32 and 3 <= len(user) < 32 else False
+
         # TODO: Lookup in JSON or database for user and pwd or insert if new connection (use of scrypt for pwd)
+
+        print(user, pwd)  # Test purpose
 
         return res

@@ -3,7 +3,7 @@ import sys
 from getpass import getpass
 from socket import AF_INET, SOCK_STREAM, socket
 
-from utils import Logger, utils
+from utils import Cmd, Logger, utils
 
 
 class Client:
@@ -14,7 +14,7 @@ class Client:
         self.target_port = target_port
         self.client_name = client_name
 
-        self._credentials = {"user": None, "pwd": None}
+        self._credentials = {"user": "", "pwd": ""}
 
         self._client_socket: socket | None = None
 
@@ -34,13 +34,15 @@ class Client:
 
             self._credentials["user"] = user
             self._credentials["pwd"] = pwd
-            self._login_client()
+
+            # Connect the user to the server
+            self.send_data({"cmd": Cmd.LOGIN, "new": True} | self._credentials)
 
             self._log.log(
                 f"Client {self.client_name} connected to server on {self.target_host}:{self.target_port}"
             )
         except Exception as e:
-            self._log.log(f"Client {self.client_name} failed to start: {e}")
+            self._log.log(f"Client {self.client_name} failed to connect: {e}")
             if self._client_socket is not None:
                 self._client_socket.close()
                 self._client_socket = None
@@ -94,4 +96,4 @@ class Client:
             )
 
     def _login_client(self) -> None:
-        pass
+        self.send_data({"cmd": Cmd.LOGIN, "new": True} | self._credentials)

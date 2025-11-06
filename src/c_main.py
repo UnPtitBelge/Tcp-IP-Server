@@ -11,7 +11,8 @@ if __name__ == "__main__":
         client.start_client()
         client.send_data({"cmd": Cmd.PING})
         res = client.receive_data()
-        print(res)
+        res1 = client.receive_data()
+        print(res, res1)
         clients.append(client)
 
     for client in clients:
