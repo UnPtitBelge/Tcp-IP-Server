@@ -2,7 +2,7 @@
 import socket
 import threading
 
-from utils.log import Logger
+from utils import Cmd, Logger, utils
 
 
 class Server:
@@ -76,15 +76,30 @@ class Server:
 
         try:
             while True:
-                request = conn.recv(1024)
-                if len(request) == 0:
+                request = utils.recv(conn)
+
+                if request is None:
                     raise Exception("Client disconnected")
-                self._log.log(f"Request received: {request}")
-                # Treat request
-                conn.send("Ping back".encode())
+
+                res = self._handle_request(request)
+                if res is not None:
+                    utils.send(conn, res)
 
         except Exception as e:
             self._log.log(f"Connection error with {addr_str}: {e}")
         finally:
             conn.close()
-            self._log.log(f"Connection closed from {addr_str}")
+            self._log.log(f"Connection closed to {addr_str}")
+
+    def _handle_request(self, request: dict):
+        match request["cmd"]:
+            case Cmd.PING:
+                return {"cmd": Cmd.PING, "data": "Ping back"}
+            case Cmd.LOGIN:
+                pass
+            case Cmd.SEND_MESSAGE:
+                pass
+            case Cmd.GET_DATA:
+                raise NotImplementedError
+            case _:
+                raise NotImplementedError(f"Uknown request's command: {request['cmd']}")

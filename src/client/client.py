@@ -1,8 +1,9 @@
 # Basic client for server test
-from socket import socket, AF_INET, SOCK_STREAM
-from utils.log import Logger
 import sys
 from getpass import getpass
+from socket import AF_INET, SOCK_STREAM, socket
+
+from utils import Logger, utils
 
 
 class Client:
@@ -47,37 +48,39 @@ class Client:
             print(e, "\nEnding client..")
             sys.exit(1)
 
-    def send_data(self, data: str) -> None:
+    def send_data(self, data: dict) -> None:
         if self._client_socket is None:
             self._log.log(
                 f"Client {self.client_name} failed to send data to the server: Socket is not set"
             )
             return
         try:
-            self._client_socket.send(data.encode())
+            utils.send(self._client_socket, data)
         except Exception as e:
             self._log.log(
                 f"Client {self.client_name} failed to send data to the server: {e}"
             )
 
-    def receive_data(self) -> str:
+    def receive_data(self) -> dict | None:
         if self._client_socket is None:
             self._log.log(
                 f"Client {self.client_name} failed to receive data to the server: {NotImplementedError('Client socket is not set')}"
             )
-            return ""
+            return None
         try:
-            res = self._client_socket.recv(4096)
-            if len(res) == 0:
+            res = utils.recv(self._client_socket)
+            if res is None:
                 self._log.log("Server offline")
-                return ""
+                return None
+
             self._log.log(f"Client {self.client_name} received response: {res}")
-            return res.decode()
+            return res
+
         except Exception as e:
             self._log.log(
                 f"Client {self.client_name} failed to receive data to the server: {e}"
             )
-            return ""
+            return None
 
     def close_socket(self) -> None:
         if self._client_socket is None:
