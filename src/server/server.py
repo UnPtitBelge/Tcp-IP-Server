@@ -70,36 +70,54 @@ class Server:
                 self._server_sock = None
         self._log.log("Server stopped")
 
-    def _handle_client(self, conn: socket.socket, addr: tuple[str, int]) -> None:
+    def _handle_client(self, sock: socket.socket, addr: tuple[str, int]) -> None:
         addr_str = f"{addr[0]}:{addr[1]}"
         self._log.log(f"Accepted connection from {addr_str}")
 
         try:
             while True:
-                request = utils.recv(conn)
+                request = utils.recv(sock)
 
                 if request is None:
                     raise Exception("Client disconnected")
 
                 res = self._handle_request(request)
                 if res is not None:
-                    utils.send(conn, res)
+                    utils.send(sock, res)
 
         except Exception as e:
-            self._log.log(f"Connection error with {addr_str}: {e}")
+            self._log.log(f"Error with socket {addr_str}: {e}")
         finally:
-            conn.close()
-            self._log.log(f"Connection closed to {addr_str}")
+            sock.close()
+            self._log.log(f"Client Socket closed{addr_str}")
 
-    def _handle_request(self, request: dict):
+    def _handle_request(self, request: dict) -> dict | None:
         match request["cmd"]:
             case Cmd.PING:
-                return {"cmd": Cmd.PING, "data": "Ping back"}
+                return {"cmd": Cmd.PING, "data": "Ping"}
             case Cmd.LOGIN:
-                pass
+                return self._login_client(request)
             case Cmd.SEND_MESSAGE:
                 pass
             case Cmd.GET_DATA:
                 raise NotImplementedError
             case _:
                 raise NotImplementedError(f"Uknown request's command: {request['cmd']}")
+
+    def _login_client(self, data: dict) -> dict | None:
+        user = data["user"]
+        pwd = data["pwd"]
+        new_conn = data["new"]  # Flag for new user
+
+        res = {
+            "cmd": Cmd.LOGIN,
+            "done": False,
+            "size": False,
+            "user": True,
+            "pwd": True,
+        }
+
+        res["size"] = True if 3 <= len(pwd) < 32 and 3 <= len(user) < 32 else False
+        # TODO: Lookup in JSON or database for user and pwd or insert if new connection (use of scrypt for pwd)
+
+        return res

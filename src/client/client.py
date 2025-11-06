@@ -14,7 +14,7 @@ class Client:
         self.target_port = target_port
         self.client_name = client_name
 
-        self._credentials = {"user": "", "pwd": ""}
+        self._credentials = {"user": None, "pwd": None}
 
         self._client_socket: socket | None = None
 
