@@ -8,49 +8,54 @@ from utils import Cmd, Logger, utils
 
 class Client:
     def __init__(
-        self, target_host: str, target_port: int, client_name: str = "name"
+        self,
+        target_host: str = "127.0.0.1",
+        target_port: int = 8080,
+        client_name: str = "name",
     ) -> None:
         self.target_host = target_host
         self.target_port = target_port
-        self.client_name = client_name
-
-        self._credentials = {"user": "", "pwd": ""}
+        self.client_name = client_name  # For log puprose (maybe more use in future)
 
         self._client_socket: socket | None = None
 
         self._log: Logger = Logger("client.log")
 
-    def start_client(self) -> socket | None:
+    def start_client(self) -> None:
+        """Create and connect the client to the server through the socket, then
+        connect the client to his account (not yet implemented on the server side)
+        """
+
         if self._client_socket is not None:
             return
         try:
             # Create socket
             self._client_socket = socket(AF_INET, SOCK_STREAM)
+
             # Connect to server
             self._client_socket.connect((self.target_host, self.target_port))
 
+            # Get credentials
             user = str(input("Username: "))
             pwd = getpass()
 
-            self._credentials["user"] = user
-            self._credentials["pwd"] = pwd
-
-            # Connect the user to the server
-            self.send_data({"cmd": Cmd.LOGIN, "new": True} | self._credentials)
+            # Connect the user to the server (for now new user flag always at true)
+            self.send_data({"cmd": Cmd.LOGIN, "new": True, "user": user, "pwd": pwd})
 
             self._log.log(
                 f"Client {self.client_name} connected to server on {self.target_host}:{self.target_port}"
             )
+        # An exception will result on the server being shutdown or a critical error on the client side
         except Exception as e:
             self._log.log(f"Client {self.client_name} failed to connect: {e}")
             if self._client_socket is not None:
                 self._client_socket.close()
-                self._client_socket = None
                 self._log.log(f"Client {self.client_name} socket closed.")
             print(e, "\nEnding client..")
-            sys.exit(1)
+            sys.exit()
 
     def send_data(self, data: dict) -> None:
+        """Send data to the server following the right format (see send(..) inutils.py)"""
         if self._client_socket is None:
             self._log.log(
                 f"Client {self.client_name} failed to send data to the server: Socket is not set"
@@ -64,9 +69,10 @@ class Client:
             )
 
     def receive_data(self) -> dict | None:
+        """Receive the response of the server and returns it in a dict format (see recv(..) in utils.py)"""
         if self._client_socket is None:
             self._log.log(
-                f"Client {self.client_name} failed to receive data to the server: {NotImplementedError('Client socket is not set')}"
+                f"Client {self.client_name} failed to receive data to the server: Socket is not set"
             )
             return None
         try:
@@ -85,6 +91,7 @@ class Client:
             return None
 
     def close_socket(self) -> None:
+        """Properly close the socket"""
         if self._client_socket is None:
             return
         try:
@@ -94,6 +101,3 @@ class Client:
             self._log.log(
                 f"Client {self.client_name} failed to close the client socket: {e}"
             )
-
-    def _login_client(self) -> None:
-        self.send_data({"cmd": Cmd.LOGIN, "new": True} | self._credentials)
