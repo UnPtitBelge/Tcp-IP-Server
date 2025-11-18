@@ -4,6 +4,7 @@ from getpass import getpass
 from socket import AF_INET, SOCK_STREAM, socket
 
 from utils import Cmd, Logger, utils
+from utils.enum import Login
 
 
 class Client:
@@ -40,7 +41,7 @@ class Client:
             pwd = getpass()
 
             # Connect the user to the server (for now new user flag always at true)
-            self.send_data({"cmd": Cmd.LOGIN, "new": True, "user": user, "pwd": pwd})
+            self._login(Cmd.LOGIN, user, pwd)
 
             self._log.log(
                 f"Client {self.client_name} connected to server on {self.target_host}:{self.target_port}"
@@ -54,27 +55,12 @@ class Client:
             print(e, "\nEnding client..")
             sys.exit()
 
-    def send_data(self, data: dict) -> None:
-        """Send data to the server following the right format (see send(..) inutils.py)"""
-        if self._client_socket is None:
-            self._log.log(
-                f"Client {self.client_name} failed to send data to the server: Socket is not set"
-            )
-            return
-        try:
-            utils.send(self._client_socket, data)
-        except Exception as e:
-            self._log.log(
-                f"Client {self.client_name} failed to send data to the server: {e}"
-            )
-
     def receive_data(self) -> dict | None:
         """Receive the response of the server and returns it in a dict format (see recv(..) in utils.py)"""
         if self._client_socket is None:
-            self._log.log(
-                f"Client {self.client_name} failed to receive data to the server: Socket is not set"
+            raise Exception(
+                "Failed to receive data from server: Client socket is not set"
             )
-            return None
         try:
             res = utils.recv(self._client_socket)
             if res is None:
@@ -101,3 +87,19 @@ class Client:
             self._log.log(
                 f"Client {self.client_name} failed to close the client socket: {e}"
             )
+
+    def ping(self) -> None:
+        """Ping the server"""
+        if self._client_socket is None:
+            raise Exception("Client socket is not set")
+
+        packet = utils.pack(Cmd.PING)
+        self._client_socket.sendall(packet)
+
+    def _login(self, cmd: str, user: str, pwd: str, new_conn: bool = True) -> None:
+        if self._client_socket is None:
+            raise Exception("Client socket is not set")
+        packet = utils.pack(
+            cmd, {Login.USER: user, Login.PWD: pwd, Login.NEW_CONN: new_conn}
+        )
+        self._client_socket.sendall(packet)

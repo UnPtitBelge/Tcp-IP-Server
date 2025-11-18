@@ -2,7 +2,9 @@
 import socket
 import threading
 
-from utils import Cmd, Logger, utils
+import utils
+from utils import Cmd, Logger, Login
+from utils.utils import CMD
 
 
 class Server:
@@ -50,6 +52,7 @@ class Server:
                 c_thread.start()
         except KeyboardInterrupt:  # CTRL-C
             self._log.log("KeyboardInterrupt: Closing server.")
+            print(" KeyboardInterrupt: Closing..")
         finally:
             self._stop()
 
@@ -85,7 +88,6 @@ class Server:
         """Handle the dedicated loop for a specified client soccket. Deal with the requests"""
 
         addr_str = f"{addr[0]}:{addr[1]}"  # For debug/log
-
         self._log.log(f"Accepted connection from {addr_str}")
 
         try:
@@ -95,52 +97,57 @@ class Server:
                 if request is None:  # Socket is closed by the client
                     raise Exception("Client disconnected")
 
-                # Prep and send the response (if there is one)
-                res = self._handle_request(request)
-                if res is not None:
-                    utils.send(sock, res)
+                # Handle the request
+                self._handle_request(sock, request)
 
         except Exception as e:
-            self._log.log(f"Error with socket {addr_str}: {e}")
+            self._log.log(f"{addr_str} Error: {e}")
         finally:
             sock.close()
             self._log.log(f"Client Socket closed {addr_str}")
 
-    def _handle_request(self, request: dict) -> dict | None:
+    def _handle_request(self, sock: socket.socket, request: dict) -> None:
         """Match case the right command to handle a request sent by a client."""
-        match request["cmd"]:
+
+        packet = None
+        match request[CMD]:
             case Cmd.PING:
-                return {"cmd": Cmd.PING}
+                packet = utils.pack(Cmd.PING)
             case Cmd.LOGIN:
-                return self._login_client(request)
+                packet = utils.pack(Cmd.LOGIN, self._login_client(request))
             case Cmd.SEND_MESSAGE:
                 pass
             case Cmd.GET_DATA:
                 raise NotImplementedError
             case _:
-                raise NotImplementedError(f"Uknown request's command: {request['cmd']}")
+                raise NotImplementedError(f"Uknown request's command: {request[CMD]}")
 
-    def _login_client(self, data: dict) -> dict | None:
-        user = data["user"]
-        pwd = data["pwd"]
-        new_conn = data["new"]  # Flag for new user
+        # If after the request handling, a response packet is created, send it
+        if packet is not None:
+            sock.sendall(packet)
+
+    def _login_client(self, data: dict) -> dict:
+        """Use the data sent by the client to fully connect it to the server."""
+
+        user = data[Login.USER]
+        pwd = data[Login.PWD]
+        new_conn = data[Login.NEW_CONN]  # Flag for new user
 
         # Set response dict
         res = {
-            "cmd": Cmd.LOGIN,
-            "done": True,
-            "size": False,
-            "user": True,
-            "pwd": True,
+            Login.DONE: True,
+            Login.SIZE: False,
+            Login.USER: True,
+            Login.PWD: True,
         }
 
         # Checks for correct format
         if 3 > len(user) >= 32:
-            res["user"] = False
+            res[Login.USER] = False
         elif 3 > len(pwd) >= 32:
-            res["pwd"] = False
+            res[Login.PWD] = False
         else:
-            res["size"] = True
+            res[Login.SIZE] = True
 
         # TODO: Lookup in JSON or database for user and pwd or insert if new connection (use of scrypt for pwd)
 

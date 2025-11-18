@@ -1,3 +1,3 @@
-from server import server
+from .server import Server
 
-__all__ = ["server"]
+__all__ = ["Server"]

@@ -1,24 +1,21 @@
 import json
 import struct
-from enum import Enum
 from pathlib import Path
 from socket import socket
-from typing import Any
 
 # Static path of the log files
 LOG_PATH_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+CMD = "cmd"
 
 
-class Cmd(int, Enum):
-    """Commands for the requests and responses"""
+def pack(cmd: str, dict_data: dict = {}) -> bytes:
+    """Transform the data into a formatted JSON string before encoding it into bytes and pack it"""
 
-    PING = 0
-    LOGIN = 1
-    SEND_MESSAGE = 2
-    GET_DATA = 3
+    packet = json.dumps({CMD: cmd} | dict_data).encode()
+    return struct.pack("!I", len(packet)) + packet
 
 
-def recv(sock: socket) -> Any:
+def recv(sock: socket) -> dict | None:
     """Receive the data and transform it into the right format:
     [4 bytes for the 'data' length]+['data']
     """
@@ -31,17 +28,10 @@ def recv(sock: socket) -> Any:
 
     raw_res = sock.recv(data_len)  # Get the rest of the data
 
-    return json.loads(
-        raw_res
+    return dict(
+        json.loads(raw_res)
     )  # Loads the data correctly into a dictionnary (format used)
 
 
-def send(sock: socket, data: dict) -> None:
-    """Transform the data into a formatted JSON string, pack it"""
-
-    # Encode the data to bytes
-    b_data = json.dumps(data).encode()
-
-    # Set the data to be sent into the correct byte format
-    packet = struct.pack("!I", len(b_data)) + b_data
+def send(sock: socket, packet: bytes) -> None:
     sock.sendall(packet)
